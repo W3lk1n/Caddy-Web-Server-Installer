@@ -532,6 +532,7 @@ caddyfile () {
 	root $caddywww
 	gzip
 	tls $domainmail
+	header / Strict-Transport-Security "max-age=31536000;"
 	log $caddylog/access.log {
 		rotate_size 50  # Rotate after 50 MB
 		rotate_age  90  # Keep rotated files for 90 days
