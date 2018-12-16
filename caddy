@@ -626,7 +626,7 @@ ExecStart=$caddypath/caddy -conf=$caddyfile -quiet=true -pidfile=/var/run/caddy/
 ExecReload=/bin/kill -USR1 $MAIN$MAINPID
 ExecStop=/bin/kill $MAIN$MAINPID
 PIDFile=/var/run/caddy/caddy.pid
-Environment=CLOUDFLARE_EMAIL=$domainemail
+Environment=CLOUDFLARE_EMAIL=$domainmail
 Environment=CLOUDFLARE_API_KEY=
 
 [Install]
