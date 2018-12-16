@@ -10,7 +10,7 @@
 caddypath="/opt/caddyserver" # folder where caddyserver will be kept
 caddywww="/home/caddywww" # folder where public files should be
 caddyfile="/home/Caddyfile" # caddy web server configuration file
-caddylog="/home/log/caddy" # folder where logs will be written
+caddylog="/home/log/" # folder where logs will be written
 caddyuser="caddy" # user under caddy is gonna be running
 
 # Load and replace above variable if Caddy.conf exists
@@ -464,6 +464,7 @@ fixphpfpm () {
 	elif [[ -e "$centosphpfpm2" ]] ; then
 		sed -i "s@user = .*@user = $phpuser@g" $centosphpfpm2
 		sed -i "s@group = .*@group = $phpuser@g" $centosphpfpm2
+		sed -i 's/listen = .*/listen = \/var\/run\/php-fpm\/php-cgi.sock/g' $centosphpfpm2
 		echo "  [$(tput setaf 2)DONE$(tput sgr0)]"
 
 	# PHP 7
@@ -528,8 +529,18 @@ caddyfile () {
 	root $caddywww
 	gzip
 	tls $domainmail
-	log $caddylog/access.log
-	errors $caddylog/error.log
+	log $caddylog/access.log {
+		rotate_size 50  # Rotate after 50 MB
+		rotate_age  90  # Keep rotated files for 90 days
+		rotate_keep 20  # Keep at most 20 log files
+		rotate_compress # Compress rotated log files in gzip format
+	}
+	errors $caddylog/error.log {
+		rotate_size 50  # Rotate after 50 MB
+		rotate_age  90  # Keep rotated files for 90 days
+		rotate_keep 20  # Keep at most 20 log files
+		rotate_compress # Compress rotated log files in gzip format
+	}
 	fastcgi / $phpsock php
 }
 " >> $caddyfile
