@@ -534,6 +534,7 @@ caddyfile () {
 	tls $domainmail {
 		dns cloudflare
 	}
+	realip cloudflare
 	header / Strict-Transport-Security \"max-age=31536000\;\"
 	log $caddylog/access.log {
 		rotate_size 50  # Rotate after 50 MB
