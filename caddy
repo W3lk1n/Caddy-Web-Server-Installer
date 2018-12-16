@@ -10,7 +10,8 @@
 caddypath="/opt/caddyserver" # folder where caddyserver will be kept
 caddywww="/home/caddywww" # folder where public files should be
 caddyfile="/home/Caddyfile" # caddy web server configuration file
-caddylog="/home/log/" # folder where logs will be written
+caddylog="/home/log/access/" # folder where logs will be written
+caddyerrlog="/home/log/error/" # folder where error logs will be written
 caddyuser="caddy" # user under caddy is gonna be running
 
 # Load and replace above variable if Caddy.conf exists
@@ -272,6 +273,7 @@ installcaddy () {
 	# Creating folders
 	mkdir -p $caddypath
 	mkdir -p $caddylog
+	mkdir -p $caddyerrlog
 	
 	# Extract Caddy to appropriate folder
 	echo -n "  Extracting $caddyname to $caddypath..."
@@ -302,6 +304,7 @@ installcaddy () {
     fi
 	chown -R $caddyuser $caddypath
 	chown -R $caddyuser $caddylog
+	chown -R $caddyuser $caddyerrlog
 
 	# Port setup
 	echo -n "  Binding port using setcap..."
@@ -535,7 +538,7 @@ caddyfile () {
 		rotate_keep 20  # Keep at most 20 log files
 		rotate_compress # Compress rotated log files in gzip format
 	}
-	errors $caddylog/error.log {
+	errors $caddyerrlog/error.log {
 		rotate_size 50  # Rotate after 50 MB
 		rotate_age  90  # Keep rotated files for 90 days
 		rotate_keep 20  # Keep at most 20 log files
