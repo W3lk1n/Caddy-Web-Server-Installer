@@ -531,7 +531,9 @@ caddyfile () {
 		echo "$domainname {
 	root $caddywww
 	gzip
-	tls $domainmail
+	tls $domainmail {
+		dns cloudflare
+	}
 	header / Strict-Transport-Security "max-age=31536000;"
 	log $caddylog/access.log {
 		rotate_size 50  # Rotate after 50 MB
@@ -624,6 +626,8 @@ ExecStart=$caddypath/caddy -conf=$caddyfile -quiet=true -pidfile=/var/run/caddy/
 ExecReload=/bin/kill -USR1 $MAIN$MAINPID
 ExecStop=/bin/kill $MAIN$MAINPID
 PIDFile=/var/run/caddy/caddy.pid
+CLOUDFLARE_EMAIL=$domainmail
+CLOUDFLARE_API_KEY=
 
 [Install]
 WantedBy=multi-user.target
