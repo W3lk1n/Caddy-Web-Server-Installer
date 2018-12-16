@@ -535,7 +535,7 @@ caddyfile () {
 		dns cloudflare
 	}
 	realip cloudflare
-	header / Strict-Transport-Security \"max-age=31536000\;\"
+	header / Strict-Transport-Security \"max-age=31536000;\"
 	log $caddylog/access.log {
 		rotate_size 50  # Rotate after 50 MB
 		rotate_age  90  # Keep rotated files for 90 days
@@ -627,7 +627,7 @@ ExecStart=$caddypath/caddy -conf=$caddyfile -quiet=true -pidfile=/var/run/caddy/
 ExecReload=/bin/kill -USR1 $MAIN$MAINPID
 ExecStop=/bin/kill $MAIN$MAINPID
 PIDFile=/var/run/caddy/caddy.pid
-Environment=CLOUDFLARE_EMAIL=$domainmail
+Environment=CLOUDFLARE_EMAIL=
 Environment=CLOUDFLARE_API_KEY=
 
 [Install]
