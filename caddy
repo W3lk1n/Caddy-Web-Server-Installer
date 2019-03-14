@@ -548,7 +548,11 @@ caddyfile () {
 		rotate_keep 20  # Keep at most 20 log files
 		rotate_compress # Compress rotated log files in gzip format
 	}
-	fastcgi / $phpsock php
+	proxy /isso 127.0.0.1:8080 {
+	without /isso
+	transparent
+	header_upstream X-Script-Name /isso
+	}
 }
 " >> $caddyfile
 
@@ -572,9 +576,7 @@ caddyfile () {
 
 <h3><font color="grey">This is the default welcome page used to test the correct operation of the Caddy web server after installation via Caddy Web Server Installer.</font></h3>
 
-<h3><font color="grey">If you can read this page, it means that the Caddy web server installed at this site is working properly.<br>
-You should <font color="#D03C3C">replace this file</font>
-(located at <tt>$caddywww/index.html</tt>) before continuing to operate your server.</font></h3>
+<h3><font color="grey">If you can read this page, it means that the Caddy web server installed at this site is working properly.<br></h3>
 </hr>
 <h3><font color="grey">If you are a normal user of this web site and don't know what this page is about, this probably means that the site is currently unavailable due to maintenance.</font></h3>" >> $caddywww/index.html
 		echo "  index file created"
