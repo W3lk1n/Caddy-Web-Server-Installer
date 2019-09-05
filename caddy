@@ -19,7 +19,7 @@ caddyuser="caddy" # user under caddy is gonna be running
 
 # Global config
 caddyname="Caddy Web Server"
-cwsiv="v6.1 pre (NEXT)"
+cwsiv="v6.2"
 bashname=$(basename "$0")
 pids=$(pgrep -nf $caddypath/caddy)
 
@@ -77,8 +77,11 @@ startcaddy () {
 	# create process id folder if necessary
 	caddypid="/var/run/caddy"
 	if [[ ! -f $caddypid ]]; then
-		mkdir -p $caddypid || ( echo "  error creating folder $caddypid" 
-		echo "  try running with: sudo $bashname start" && exit )
+		mkdir -p $caddypid || (
+		  echo "  error creating folder $caddypid"
+		  echo "  try running with: sudo $bashname start"
+			exit 1
+		) || exit 1
 		chown $caddyuser $caddypid
 	fi
 
@@ -241,21 +244,21 @@ getcaddy () {
 	# Check if plugin should be installed
 	if [[ ! $plugin == "" ]]; then
 		cpubits="$cpubits?plugins=$plugin&license=personal&telemetry=off"
-		echo -n "  Downloading $caddyname with plugin ($plugin) for $cpubitsname" # Caddy linux
+		echo "  Downloading $caddyname with plugin ($plugin) for $cpubitsname" # Caddy linux
 	else
 		cpubits="$cpubits?plugins=http.realip,tls.dns.cloudflare&license=personal&telemetry=off"
-		echo -n "  Downloading $caddyname for $cpubitsname" # Caddy linux
+		echo "  Downloading $caddyname for $cpubitsname" # Caddy linux
 	fi
 
 	# Star downloading caddy now
-	if ! wget -q $nocert "https://caddyserver.com/download/linux/$cpubits" -O "caddy_linux_custom.tar.gz"; then
+	if ! wget -q $nocert "https://caddyserver.com/download/linux/$cpubits" -O "caddy_linux_custom.tar.gz" --show-progress; then
 		echo "  [$(tput setaf 1)FAILED$(tput sgr0)]"
 		echo ""
 		echo "  Error: Cannot download Caddy binary!"
 		echo "  https://caddyserver.com/download/linux/$cpubits"
 		exit 1
 	fi
-	echo "  [$(tput setaf 2)DONE$(tput sgr0)]"
+	echo ""
 }
 
 installcaddy () {
