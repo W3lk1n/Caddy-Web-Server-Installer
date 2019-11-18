@@ -19,9 +19,10 @@ caddyuser="caddy" # user under caddy is gonna be running
 
 # Global config
 caddyname="Caddy Web Server"
-cwsiv="v6.2"
+cwsiv="v6.5"
 bashname=$(basename "$0")
 pids=$(pgrep -nf $caddypath/caddy)
+updateCheck="$caddypath/update.check"
 
 # working directory
 cd /opt || echo "Oops! /opt doesn't exist."
@@ -169,7 +170,7 @@ restartphpfpm () {
 	
 	# PHP 7
 	elif [[ -e "$phpfpm7" ]]; then
-	/etc/init.d/php7.0-fpm reload &>/dev/null
+	/etc/init.d/php7.*-fpm reload &>/dev/null
 	fi
 }
 
@@ -213,9 +214,12 @@ amiroot () {
 
 getcaddy () {
 	# Detect architecture. We only support linux.
-	if uname -m | grep -q 64; then
+	if uname -m | grep -q x86_64; then
 		cpubits="amd64"
 		cpubitsname="64bit..."
+	elif uname -m | grep -q aarch64; then
+		cpubits="arm64"
+		cpubitsname="AArch64..."
 	elif uname -m | grep -q 86; then
 		cpubits="386"
 		cpubitsname="32bit..."
@@ -328,6 +332,33 @@ installcaddy () {
 	fi
 }
 
+compareVersion () {
+	IFS='.' read -ra ver1 <<< "$1"
+	IFS='.' read -ra ver2 <<< "$2"
+
+	[[ ${#ver1[@]} -gt ${#ver2[@]} ]] && till=${#ver1[@]} || till=${#ver2[@]}
+
+	for ((i=0; i<${till}; i++)); do
+
+	    local num1; local num2;
+
+	    [[ -z ${ver1[i]} ]] && num1=0 || num1=${ver1[i]}
+	    [[ -z ${ver2[i]} ]] && num2=0 || num2=${ver2[i]}
+
+	    if [[ $num1 -gt $num2 ]]; then
+	        echo ">"
+					return 0
+	    elif
+	       [[ $num1 -lt $num2 ]]; then
+	        echo "<"
+					return 0
+	    fi
+	done
+
+	echo "="
+	return 0
+}
+
 updatecaddy () {
 	# Detetcting Caddy installed or not
 	isinstalled || exit 1
@@ -335,9 +366,11 @@ updatecaddy () {
 	echo;
 
 	# Check if there is newer version available
-	caddyversion=$($caddypath/caddy -version | awk '{print}' | sed 's/[^0-9]*//g' | sed 's/^0*//')
-	CADDYV=$(wget -qO- https://api.github.com/repos/mholt/caddy/releases/latest | grep tag_name | sed 's/[^0-9]*//g' | sed 's/^0*//')
-	if [[ ! $CADDYV -gt $caddyversion ]]; then
+	caddyversion=$($caddypath/caddy -version | sed -e 's/-/ /g' -e 's/[^0-9\. ]*//g' | awk '{print $1}')
+	CADDYV=$(wget -qO- https://api.github.com/repos/mholt/caddy/releases/latest | grep tag_name | sed 's/[^0-9\.]*//g')
+	isGreater=$(compareVersion $CADDYV $caddyversion)
+
+	if [[ $isGreater != ">" ]]; then
 		echo "  Looks like you already have latest version installed."
 		sleep 0.1
 		echo "  Abort.";
@@ -382,7 +415,7 @@ updatecaddy () {
 	hash setcap 2>/dev/null && setcap cap_net_bind_service=+ep $caddypath/caddy &>/dev/null
 
 	# Removing caddy archive and printing info
-	echo $(date +%s) > $caddypath/update.check
+	echo $(date +%s) > $updateCheck
 	rm -f caddy_linux_custom.tar.gz # Deleting Caddy archive
 	caddyversion=$($caddypath/caddy -version | awk '{print}')
 	echo; echo "  Updated to $caddyversion"; echo;
@@ -408,17 +441,19 @@ installphp () {
 			fi
 
 			# Setup PHP
-			if [[ $CODENAME -gt 15 ]] || [[ $DEBIAN9V -gt 8 ]]; then
+			if [[ $CODENAME -gt 15 ]] || [[ $DEBIAN9V -eq 9 ]]; then
 				PHP="php7.0"
+			elif [[ $DEBIAN9V -ge 10 ]]; then
+				PHP="php"
 			else
 				PHP="php5"
 			fi
 
 			# Install PHP
 			if hash yum 2>/dev/null; then
-				yum update -y &>/dev/null && yum install sed php72-php-fpm php72-php-cli php72-php-common php72-php-pdo curl -y &>/dev/null
+				yum update -y &>/dev/null && yum install sed php-fpm php-cli php-curl curl sudo -y &>/dev/null
 				echo "  [$(tput setaf 2)DONE$(tput sgr0)]"
-				echo "  Installed 'php72-php-fpm php72-php-cli php72-php-common php72-php-pdo curl'"
+				echo "  Installed 'php-fpm php-cli php-curl curl sudo'"
 				fixphpfpm;
  			elif hash apt-get 2>/dev/null; then
 				apt-get update -y &>/dev/null && apt-get install sed $PHP-fpm $PHP-cli $PHP-curl curl sudo -y &>/dev/null
@@ -442,7 +477,7 @@ phpvalue () {
 	ubuntuphp5fpm="/etc/php5/fpm/pool.d/www.conf"
 	centosphpfpm="/etc/php/fpm/pool.d/www.conf"
 	centosphpfpm2="/etc/php-fpm.d/www.conf"
-	phpfpm7="/etc/php/7.0/fpm/pool.d/www.conf"
+	phpfpm7=$(echo /etc/php/7.*/fpm/pool.d/www.conf)
 }
 
 fixphpfpm () {
@@ -470,7 +505,6 @@ fixphpfpm () {
 	elif [[ -e "$centosphpfpm2" ]] ; then
 		sed -i "s@user = .*@user = $phpuser@g" $centosphpfpm2
 		sed -i "s@group = .*@group = $phpuser@g" $centosphpfpm2
-		sed -i 's/listen = .*/listen = \/var\/run\/php-fpm\/php-cgi.sock/g' $centosphpfpm2
 		echo "  [$(tput setaf 2)DONE$(tput sgr0)]"
 
 	# PHP 7
@@ -573,7 +607,8 @@ caddyfile () {
 	# Generate example html
 	# shellcheck disable=SC1078,SC1079,SC2140
 	if [[ ! -e $caddywww/index.html ]]; then
-		echo "<TITLE>Caddy Default Page</TITLE>
+		cat <<EOF > $caddywww/index.html
+<TITLE>Caddy Default Page</TITLE>
 
 <h1><font color="green">It works!</font></h1>
 
@@ -581,7 +616,8 @@ caddyfile () {
 
 <h3><font color="grey">If you can read this page, it means that the Caddy web server installed at this site is working properly.<br></h3>
 </hr>
-<h3><font color="grey">If you are a normal user of this web site and don't know what this page is about, this probably means that the site is currently unavailable due to maintenance.</font></h3>" >> $caddywww/index.html
+<h3><font color="grey">If you are a normal user of this web site and don't know what this page is about, this probably means that the site is currently unavailable due to maintenance.</font></h3>
+EOF
 		echo "  index file created"
 		echo "  $caddywww/index.html"
 	else
@@ -771,12 +807,11 @@ deletecaddydata () {
 versioninfo () {
 	echo ""
 	if [[ -e $caddypath/caddy ]]; then
-		caddyversion=$($caddypath/caddy -version | awk '{print $2}')
-		echo "  $caddyname $caddyversion"
+		echo "  $($caddypath/caddy -version)"
 	else
 		echo "  $caddyname is not installed."
 	fi
-	echo "  Caddy Web Server Installer - $cwsiv"
+	echo "  $caddyname Installer - $cwsiv"
 	if hash php 2>/dev/null; then
 		echo "  $(php -v | grep cli)"
 	fi
@@ -798,17 +833,17 @@ editcaddyfile (){
 
 checkforupdate () {
 	# Check if there is newer version available
-	# Currenly only check caddyserver not this script
-	caddyversion=$($caddypath/caddy -version | awk '{print}' | sed 's/[^0-9]*//g' | sed 's/^0*//')
-	CADDYV=$(wget -qO- https://api.github.com/repos/mholt/caddy/releases/latest | grep tag_name | sed 's/[^0-9]*//g' | sed 's/^0*//')
-	if [[ $CADDYV -gt $caddyversion ]]; then
+	# Currenly only checks for caddy web server and not this script
+	caddyversion=$($caddypath/caddy -version | sed -e 's/-/ /g' -e 's/[^0-9\. ]*//g' | awk '{print $1}')
+	CADDYV=$(wget -qO- https://api.github.com/repos/mholt/caddy/releases/latest | grep tag_name | sed 's/[^0-9\.]*//g')
+	isGreater=$(compareVersion $CADDYV $caddyversion)
+
+	if [[ $CADDYV != "" && $isGreater == ">" ]]; then
 		echo ""
 		echo "  $(tput setaf 1)NOTICE:$(tput sgr0)"
 		echo "  There is an update available of $caddyname"
 		echo "  run $(tput setaf 3)$bashname update$(tput sgr0) to update"
 		echo ""
-	else
-		[[ $CADDYV == "" ]] || echo $(date +%s) > $caddypath/update.check || echo $(date +%s) | sudo tee $caddypath/update.check
 	fi
 }
 
@@ -873,7 +908,7 @@ case $1 in
 		amiroot; editcaddyfile;;
 	'-service'|'--service'|'service'|'makeservice' )
 		amiroot; makeservice;;
-	'-del'|'delete'|'--delete'|'-rm'|'deletecaddy' )
+	'-del'|'delete'|'--delete'|'-rm'|'deletecaddy'|'-uninstall'|'uninstall' )
 		amiroot; deletecaddy;;
 	'delete-service'|'--delete-service'|'remove-startup'|'--remove-startup' )
 		amiroot; removeservice;;
@@ -891,20 +926,20 @@ case $1 in
 		caddystatus; howto;;
 esac
 
-# check updates every 72hrs
+# check updates every 48hrs
 if [[ -e "$caddypath/caddy" ]]; then
+	currentDays=$(date +%s)
 	# Create update.check file if not exist
-	if [[ ! -e $caddypath/update.check ]]; then
-		echo $(date +%s) > $caddypath/update.check
-		chmod 777 $caddypath/update.check
-	elif [[ -e $caddypath/update.check  ]]; then
-		currentdays="$(date +%s)"
-		lastcheckdays=$(cat $caddypath/update.check)
-		updatedays="$(($currentdays - $lastcheckdays))"
-		# if more than 72hrs execute update check
-		if [[ $updatedays -gt 259200 ]]; then
-			checkforupdate;
-		fi
+	if [[ ! -e $updateCheck ]]; then
+		echo $currentDays > $updateCheck
+		chmod 777 $updateCheck
+	fi
+	lastCheckDays=$(cat $updateCheck)
+	updateDays="$(($currentDays - $lastCheckDays))"
+
+	# if more than 48hrs execute update check
+	if [[ $updateDays -gt 172800 ]]; then
+		checkforupdate $currentDays $updateCheck;
 	fi
 fi
 
